@@ -13,7 +13,7 @@
 #define FLUSH_TX        0xE1  // Define flush TX register command
 #define FLUSH_RX        0xE2  // Define flush RX register command
 #define REUSE_TX_PL     0xE3  // Define reuse TX payload register command
-#define NOP             0xFF  // Define No Operation, might be used to read status register
+#define NRF_NOP             0xFF  // Define No Operation, might be used to read status register
 //***************************************************/
 #define RX_DR    0x40
 #define TX_DS    0x20
@@ -48,6 +48,11 @@
 #define DYNPD    		0x1C  // per pipe DPL control
 #define FEATURE    		0x1D  // 'Feature' register address
 
+#define nrf_SET 1
+#define nrf_CLEAR 0
+#define nrf_INPUT 1
+#define nrf_OUTPUT 0
+
 
 
 //nRF defines
@@ -70,7 +75,6 @@ unsigned char SPI_Write_Buf(unsigned char, unsigned char *, unsigned char);
 
 void nrf_init(void);
 unsigned char nrf_Send(unsigned char * tx_buf, unsigned char * rx_buf);
-//unsigned char nrf_Send(void);
 unsigned char nrf_Recieve(unsigned char * rx_buf);
 
 void initTX(void);
@@ -78,9 +82,4 @@ void initRX(void);
 unsigned char getStatus(void);
 unsigned char write(unsigned char * /* Data */);
 unsigned char read(unsigned char * /* Buffer */);
-
-
-
-
-
 
