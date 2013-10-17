@@ -84,22 +84,24 @@ unsigned char nrf_getStatus(void) {
 
 unsigned char nrf_send(unsigned char * tx_buf, unsigned char * rx_buf) {
     char status;
-
-    nrf_SPI_RW_Reg(FLUSH_TX,0);
-
-    nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, MAX_RT);	//nrf_CLEAR max RT bit
-    nrf_SPI_Write_Buf(WR_TX_PLOAD,tx_buf,TX_PLOAD_WIDTH); //load the data into the NRF
-
-    //wait for response
-    CE = nrf_SET;
-    Delay1KTCYx(60);	
-    CE = nrf_CLEAR;
+	unsigned int i;
 
     status = nrf_getStatus();
-    if(status & RX_DR) {
-        nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, RX_DR);		
+	nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, status);  //clear status
+    //nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, MAX_RT);	//nrf_CLEAR max RT bit
+    nrf_SPI_RW_Reg(FLUSH_RX,0);
+
+	nrf_SPI_Write_Buf(WR_TX_PLOAD,tx_buf,TX_PLOAD_WIDTH); //load the data into the nRF
+
+    CE = nrf_SET;  //make sure we're sending
+	//Delay10KTCYx(6);
+	PORTBbits.RB7 = set; //testing
+	for (i=0;i<2000;i++);  //2240us
+	PORTBbits.RB7 = clear; //testing
+
+	status = nrf_getStatus();
+    if(status & RX_DR) {	
         nrf_SPI_Read_Buf(RD_RX_PLOAD,rx_buf,2);
-        nrf_SPI_RW_Reg(FLUSH_RX,0);
         return YES_ACK;
     } else {
         return NO_ACK;
@@ -119,19 +121,19 @@ unsigned char nrf_recieve(unsigned char * rx_buf) {
     nrf_SPI_RW_Reg(FLUSH_TX,0);
     nrf_SPI_Write_Buf(W_ACK_PAYLOAD,ACK_buf,2);
 
-    config = nrf_SPI_Read(CONFIG);
+    //config = nrf_SPI_Read(CONFIG);
 
     status = nrf_getStatus();
     ffstat = nrf_SPI_Read(FIFO_STATUS);
 
     if(((status & RX_DR))||(!(ffstat & 0x01))) {
         ffstatcount = 0;
-        while(ffstatcount++ < 4 && (ffstat & 0x01) == 0) {
+        while((ffstatcount++ < 4) && ((ffstat & 0x01) == 0)) {
             //read entire buffer---------
             nrf_SPI_Read_Buf(RD_RX_PLOAD,rx_buf,32);
             ffstat = nrf_SPI_Read(FIFO_STATUS);
         }
-        nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, RX_DR);	//nrf_CLEAR RX flag
+        nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, 0x70);	//nrf_CLEAR all flags
         return YES_DATA;
     } else {
         return NO_DATA;
@@ -161,6 +163,7 @@ void nrf_init(void) {
     nrf_SPI_RW_Reg(WRITE_REG + DYNPD, PIPE_0);		//enable DPL on pipe 0
     nrf_SPI_RW_Reg(WRITE_REG + EN_AA, 0x01);      // Enable Auto.Ack:Pipe0
     nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, 0x01);  // Enable Pipe0
+	nrf_SPI_RW_Reg(WRITE_REG + SETUP_RETR, 0x12); // 500us + 86us, 2 retrans...
     nrf_SPI_RW_Reg(WRITE_REG + RF_CH, 40);        // Select RF channel 40
     nrf_SPI_RW_Reg(WRITE_REG + RX_PW_P0, TX_PLOAD_WIDTH); // Select same RX payload width as TX Payload width
     nrf_SPI_RW_Reg(WRITE_REG + RF_SETUP, 0x07);   // TX_PWR:0dBm, Datarate:1Mbps, LNA:HCURR
