@@ -10,3 +10,6 @@ void nrf_init(void);
 void nrf_txmode(void);
 void nrf_rxmode(void);
 void nrf_powerdown(void);
+
+void nrf_setTxAddr(char addr);
+void nrf_setRxAddr(char pipe, char addr);

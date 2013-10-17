@@ -64,7 +64,7 @@
 #define NO_DATA			0x00
 #define YES_DATA		0x01
 
-unsigned char TX_ADDRESS[TX_ADR_WIDTH] = {0x34,0x43,0x10,0x10,0x01}; // Define a static TX address
+unsigned char TX_ADDRESS[TX_ADR_WIDTH] = {0x34,0x43,0x10,0x10,0x00}; // Define a static TX address
 
 unsigned char nrf_SPI_RW(unsigned char);
 unsigned char nrf_SPI_RW_Reg(unsigned char, unsigned char);
@@ -200,6 +200,16 @@ void nrf_powerdown(void) {
     nrf_SPI_RW_Reg(WRITE_REG + CONFIG, 0x0C);     // Clear PWR_UP bit
 
     CE = nrf_SET;
+}
+
+void nrf_setTxAddr(char addr) {
+    TX_ADDRESS[4] = addr;
+    nrf_SPI_Write_Buf(WRITE_REG + TX_ADDR, TX_ADDRESS, TX_ADR_WIDTH);
+}
+
+void nrf_setRxAddr(char pipe, char addr) {
+    TX_ADDRESS[4] = addr;
+    nrf_SPI_Write_Buf(WRITE_REG + RX_ADDR_P0 + pipe, TX_ADDRESS, TX_ADR_WIDTH);
 }
 
 
