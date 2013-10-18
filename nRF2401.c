@@ -1,7 +1,6 @@
-#include <p18f25k80.h>
+#include <xc.h>
 #include "nRF2401.h"
 #include "constants.h"
-#include <delays.h>
 
 //****************************************************/
 // SPI(nRF24L01) commands
@@ -58,6 +57,7 @@
 
 #define TX_ADR_WIDTH    5   // 5 unsigned chars TX(RX) address width
 #define TX_PLOAD_WIDTH  32  // 4 unsigned chars TX payload
+#define ACK_PAYLOAD 2
 
 #define NO_ACK			0x00
 #define YES_ACK			0x01
@@ -76,7 +76,7 @@ unsigned char nrf_getStatus(void) {
     unsigned char status;
     CSN = nrf_CLEAR;
     SSPBUF = 0xFF;
-    while(~SSPSTATbits.BF);
+    while(!SSPSTATbits.BF);
     status = SSPBUF;
     CSN = nrf_SET;
     return status;
@@ -84,42 +84,40 @@ unsigned char nrf_getStatus(void) {
 
 unsigned char nrf_send(unsigned char * tx_buf, unsigned char * rx_buf) {
     char status;
-	unsigned int i;
+    int i;
+
+    nrf_SPI_RW_Reg(FLUSH_TX,0);
+    
+    status = nrf_getStatus();
+    nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, status);	//nrf_CLEAR max RT bit
+    nrf_SPI_Write_Buf(WR_TX_PLOAD,tx_buf,TX_PLOAD_WIDTH); //load the data into the NRF
+
+    //wait for response
+    CE = nrf_SET;
+    for(i=0; i<2000; i++);
+    CE = nrf_CLEAR;
 
     status = nrf_getStatus();
-	nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, status);  //clear status
-    //nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, MAX_RT);	//nrf_CLEAR max RT bit
-    nrf_SPI_RW_Reg(FLUSH_RX,0);
-
-	nrf_SPI_Write_Buf(WR_TX_PLOAD,tx_buf,TX_PLOAD_WIDTH); //load the data into the nRF
-
-    CE = nrf_SET;  //make sure we're sending
-	//Delay10KTCYx(6);
-	PORTBbits.RB7 = set; //testing
-	for (i=0;i<2000;i++);  //2240us
-	PORTBbits.RB7 = clear; //testing
-
-	status = nrf_getStatus();
-    if(status & RX_DR) {	
-        nrf_SPI_Read_Buf(RD_RX_PLOAD,rx_buf,2);
+    if(status & RX_DR) {
+        nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, RX_DR);		
+        nrf_SPI_Read_Buf(RD_RX_PLOAD,rx_buf,ACK_PAYLOAD);
+        nrf_SPI_RW_Reg(FLUSH_RX,0);
         return YES_ACK;
     } else {
         return NO_ACK;
     }
 }
 
-unsigned char nrf_recieve(unsigned char * rx_buf) {
+unsigned char nrf_recieve(unsigned char * tx_buf, unsigned char * rx_buf) {
     char status;
     char ffstat;
     char config;
     char ffstatcount;
-    unsigned char ACK_buf[2] = {0x12,0x34};
-    unsigned char temp_buf[32];
 
     //------ load ACK payload data -------------
 
     nrf_SPI_RW_Reg(FLUSH_TX,0);
-    nrf_SPI_Write_Buf(W_ACK_PAYLOAD,ACK_buf,2);
+    nrf_SPI_Write_Buf(W_ACK_PAYLOAD,tx_buf,ACK_PAYLOAD);
 
     //config = nrf_SPI_Read(CONFIG);
 
@@ -206,13 +204,21 @@ void nrf_powerdown(void) {
 }
 
 void nrf_setTxAddr(char addr) {
-    TX_ADDRESS[4] = addr;
+    CE = nrf_CLEAR;
+    Delay10TCYx(3);
+    TX_ADDRESS[1] = addr;
     nrf_SPI_Write_Buf(WRITE_REG + TX_ADDR, TX_ADDRESS, TX_ADR_WIDTH);
+    Delay10TCYx(3);
+    CE = nrf_SET;
 }
 
 void nrf_setRxAddr(char pipe, char addr) {
-    TX_ADDRESS[4] = addr;
+    CE = nrf_CLEAR;
+    Delay10TCYx(3);
+    TX_ADDRESS[1] = addr;
     nrf_SPI_Write_Buf(WRITE_REG + RX_ADDR_P0 + pipe, TX_ADDRESS, TX_ADR_WIDTH);
+    Delay10TCYx(3);
+    CE = nrf_SET;
 }
 
 
