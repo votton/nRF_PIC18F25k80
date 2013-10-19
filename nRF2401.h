@@ -4,7 +4,8 @@
 
 unsigned char nrf_getStatus(void);
 unsigned char nrf_send(unsigned char * tx_buf, unsigned char * rx_buf);
-unsigned char nrf_recieve(unsigned char * tx_buf, unsigned char * rx_buf);
+void nrf_send_noack(unsigned char * tx_buf, unsigned char * rx_buf);
+unsigned char nrf_receive(unsigned char * tx_buf, unsigned char * rx_buf);
 
 void nrf_init(void);
 void nrf_txmode(void);

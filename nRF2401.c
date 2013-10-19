@@ -108,7 +108,20 @@ unsigned char nrf_send(unsigned char * tx_buf, unsigned char * rx_buf) {
     }
 }
 
-unsigned char nrf_recieve(unsigned char * tx_buf, unsigned char * rx_buf) {
+void nrf_send_noack(unsigned char * tx_buf, unsigned char * rx_buf) {
+    char status;
+    int i;
+
+    nrf_SPI_RW_Reg(FLUSH_TX,0);
+
+    status = nrf_getStatus();
+    nrf_SPI_RW_Reg(WRITE_REG + STATUS_REG, status);	//nrf_CLEAR max RT bit
+    nrf_SPI_Write_Buf(WR_TX_PLOAD_NOACK,tx_buf,TX_PLOAD_WIDTH); //load the data into the NRF
+
+    CE = nrf_SET;
+}
+
+unsigned char nrf_receive(unsigned char * tx_buf, unsigned char * rx_buf) {
     char status;
     char ffstat;
     char config;
@@ -161,7 +174,7 @@ void nrf_init(void) {
     nrf_SPI_RW_Reg(WRITE_REG + DYNPD, PIPE_0);		//enable DPL on pipe 0
     nrf_SPI_RW_Reg(WRITE_REG + EN_AA, 0x01);      // Enable Auto.Ack:Pipe0
     nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, 0x01);  // Enable Pipe0
-	nrf_SPI_RW_Reg(WRITE_REG + SETUP_RETR, 0x12); // 500us + 86us, 2 retrans...
+    nrf_SPI_RW_Reg(WRITE_REG + SETUP_RETR, 0x12); // 500us + 86us, 2 retrans...
     nrf_SPI_RW_Reg(WRITE_REG + RF_CH, 40);        // Select RF channel 40
     nrf_SPI_RW_Reg(WRITE_REG + RX_PW_P0, TX_PLOAD_WIDTH); // Select same RX payload width as TX Payload width
     nrf_SPI_RW_Reg(WRITE_REG + RF_SETUP, 0x07);   // TX_PWR:0dBm, Datarate:1Mbps, LNA:HCURR
