@@ -20,7 +20,6 @@
 #define RX_DR    0x40
 #define TX_DS    0x20
 #define MAX_RT   0x10
-#define PIPE_0   0x01
 //*********	******************************************/
 // SPI(nRF24L01) registers(addresses)
 #define CONFIG          0x00  // 'Config' register address
@@ -170,13 +169,14 @@ void nrf_init(void) {
     nrf_SPI_Write_Buf(WRITE_REG + RX_ADDR_P0, TX_ADDRESS, TX_ADR_WIDTH); // Use the same address on the RX device as the TX device
 
     nrf_SPI_RW_Reg(ACTIVATE,0x73);					//activate feature register
-    nrf_SPI_RW_Reg(WRITE_REG + FEATURE, 0x06);		//nrf_SET features for DPL
-    nrf_SPI_RW_Reg(WRITE_REG + DYNPD, PIPE_0);		//enable DPL on pipe 0
-    nrf_SPI_RW_Reg(WRITE_REG + EN_AA, 0x01);      // Enable Auto.Ack:Pipe0
-    nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, 0x01);  // Enable Pipe0
+    nrf_SPI_RW_Reg(WRITE_REG + FEATURE, 0x06);	        	//nrf_SET features for DPL
+    nrf_SPI_RW_Reg(WRITE_REG + DYNPD,     0b111111);		//enable DPL on all pipes
+    nrf_SPI_RW_Reg(WRITE_REG + EN_AA,     0b111111);            // Enable Auto.Ack:(all pipes)
+    nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, 0b0001);              // Enable Pipe0
     nrf_SPI_RW_Reg(WRITE_REG + SETUP_RETR, 0x12); // 500us + 86us, 2 retrans...
     nrf_SPI_RW_Reg(WRITE_REG + RF_CH, 40);        // Select RF channel 40
     nrf_SPI_RW_Reg(WRITE_REG + RX_PW_P0, TX_PLOAD_WIDTH); // Select same RX payload width as TX Payload width
+    nrf_SPI_RW_Reg(WRITE_REG + RX_PW_P1, TX_PLOAD_WIDTH); // Select same RX payload width as TX Payload width
     nrf_SPI_RW_Reg(WRITE_REG + RF_SETUP, 0x07);   // TX_PWR:0dBm, Datarate:1Mbps, LNA:HCURR
 
     Delay10TCYx(3);
@@ -219,7 +219,7 @@ void nrf_powerdown(void) {
 void nrf_setTxAddr(char addr) {
     CE = nrf_CLEAR;
     Delay10TCYx(3);
-    TX_ADDRESS[1] = addr;
+    TX_ADDRESS[0] = addr;
     nrf_SPI_Write_Buf(WRITE_REG + TX_ADDR, TX_ADDRESS, TX_ADR_WIDTH);
     Delay10TCYx(3);
     CE = nrf_SET;
@@ -228,11 +228,39 @@ void nrf_setTxAddr(char addr) {
 void nrf_setRxAddr(char pipe, char addr) {
     CE = nrf_CLEAR;
     Delay10TCYx(3);
-    TX_ADDRESS[1] = addr;
+    TX_ADDRESS[0] = addr;
     nrf_SPI_Write_Buf(WRITE_REG + RX_ADDR_P0 + pipe, TX_ADDRESS, TX_ADR_WIDTH);
     Delay10TCYx(3);
     CE = nrf_SET;
 }
+
+char nrf_enablePipe(char pipe) {
+    char pipeStatus;
+    
+    CE = nrf_CLEAR;
+    Delay10TCYx(3);
+    pipeStatus = nrf_SPI_Read(EN_RXADDR);
+    pipeStatus = pipeStatus | (0b1 << pipe);
+    nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, pipeStatus);
+    Delay10TCYx(3);
+    CE = nrf_SET;
+    return pipeStatus;
+}
+
+char nrf_disablePipe(char pipe) {
+    char pipeStatus;
+    
+    CE = nrf_CLEAR;
+    Delay10TCYx(3);
+    pipeStatus = nrf_SPI_Read(EN_RXADDR);
+    pipeStatus = pipeStatus & ~(0b1 << pipe);
+    nrf_SPI_RW_Reg(WRITE_REG + EN_RXADDR, pipeStatus);
+    Delay10TCYx(3);
+    CE = nrf_SET;
+    return pipeStatus;
+}
+
+
 
 
 
@@ -274,7 +302,7 @@ unsigned char nrf_SPI_RW_Reg(unsigned char reg, unsigned char value) {
     nrf_SPI_RW(value);                    // ..and write value to it..
     CSN = nrf_SET;                    // CSN high again
 
-    return(status);                   // return nRF24L01 status unsigned char
+    return status;                   // return nRF24L01 status unsigned char
 }
 /**************************************************/
 
